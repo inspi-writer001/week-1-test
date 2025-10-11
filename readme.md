@@ -2,15 +2,19 @@
 
 [Turbine Task Description](https://docs.google.com/presentation/d/1cCr9ZMX3s3w5XUtAoI5U3ylHBcT7U_k1ge9a43dqMmM/edit?usp=sharing)
 
-<iframe 
-    src="https://docs.google.com/presentation/d/1cCr9ZMX3s3w5XUtAoI5U3ylHBcT7U_k1ge9a43dqMmM/embed?start=false&loop=false&delayms=3000" 
-    frameborder="0" 
-    width="960" 
-    height="569" 
-    allowfullscreen="true" 
-    mozallowfullscreen="true" 
+[![Turbine Task Description](https://drive.google.com/thumbnail?id=1cCr9ZMX3s3w5XUtAoI5U3ylHBcT7U_k1ge9a43dqMmM)](https://docs.google.com/presentation/d/1cCr9ZMX3s3w5XUtAoI5U3ylHBcT7U_k1ge9a43dqMmM/view?usp=sharing)
+
+> 📎 Click the image to view the full presentation
+
+<!-- <iframe
+    src="https://docs.google.com/presentation/d/1cCr9ZMX3s3w5XUtAoI5U3ylHBcT7U_k1ge9a43dqMmM/embed?start=false&loop=false&delayms=3000"
+    frameborder="0"
+    width="960"
+    height="569"
+    allowfullscreen="true"
+    mozallowfullscreen="true"
     webkitallowfullscreen="true">
-</iframe>
+</iframe> -->
 
 ---
 
