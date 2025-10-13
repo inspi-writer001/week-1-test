@@ -54,10 +54,20 @@ impl<'info> TransferHook<'info> {
 
          let whitelist_accounts = &mut self.whitelist;
 
-        if !whitelist_accounts.contains_address(self.owner.key) {
+        if !whitelist_accounts.contains_address(&self.source_token.key()) {
             panic!("TransferHook: Owner is not whitelisted");
         };
 
+        let is_actually_whitelisted = self.whitelist.is_whitelisted(&self.source_token.key());
+
+        let is_whitelisted =  match is_actually_whitelisted {
+            Some(yes_whitelisted) => yes_whitelisted == &true && true,
+            None => {false}
+        };
+
+        if !is_whitelisted {
+            panic!("TransferHook: Owner is not whitelisted");
+        }
         Ok(())
     }
 

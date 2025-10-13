@@ -17,7 +17,7 @@ pub struct WhitelistOperations<'info> {
         init_if_needed,
         payer = admin,
         seeds = [b"whitelist"],
-        space = 8 + 4 + (1 * 32 + 8) + 1, // 8 bytes for discriminator, 4 bytes for vector length, (1 * 32 + 8) => 1 length_of_vec * 32 pubkey_space + 8 u64_amount, 1 byte for bump  // but this is redundant since I'm allocating the size dynamically anyway, 8 + 4 + 1 would do anyway
+        space = 8 + 4 + 1, // 8 bytes for discriminator, 4 bytes for vector length, (1 * 32 + 8) => 1 length_of_vec * 32 pubkey_space + 8 u64_amount, 1 byte for bump  // but this is redundant since I'm allocating the size dynamically anyway, 8 + 4 + 1 would do anyway
         bump,
     )]
     pub whitelist: Account<'info, Whitelist>,
@@ -39,7 +39,7 @@ impl<'info> WhitelistOperations<'info> {
 
         if !whitelist_accounts.contains_address(&address) {
             self.realloc_whitelist(true)?;
-            self.whitelist.address.push((address, 0));
+            self.whitelist.address.push((address, 0, true));
         }
         Ok(())
     }
@@ -55,7 +55,7 @@ impl<'info> WhitelistOperations<'info> {
             .whitelist
             .address
             .iter()
-            .position(|(addr, _)| *addr == address)
+            .position(|(addr, _, _)| *addr == address)
         {
             self.whitelist.address.remove(pos);
             self.realloc_whitelist(false)?;

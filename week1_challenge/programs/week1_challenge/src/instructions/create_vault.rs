@@ -4,8 +4,8 @@ use anchor_spl::{
     token_interface::{spl_pod::option::Nullable, Mint, TokenAccount, TokenInterface},
 };
 
+use crate::VAULT_SEED;
 use crate::{error::VaultError, Vault};
-pub const VAULT_SEED: &[u8] = b"vault";
 
 #[derive(Accounts)]
 pub struct VaultOperation<'info> {

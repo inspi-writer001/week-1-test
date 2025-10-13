@@ -12,4 +12,18 @@ pub enum VaultError {
     MUltiplicationAtMint,
     #[msg("Admin should already have created this Vault")]
     VaultNotCreatedByAdmin,
+    #[msg("You provided a wrong ATA for the account")]
+    WrongATA,
+    #[msg("You provided a wrong Mint for the Instruction")]
+    WrongMint,
+    #[msg("You provided a wrong Authority for the Mint")]
+    WrongMintAuthority,
+    #[msg("You cannot transfer more than you own")]
+    InsufficientBalance,
+    #[msg("user does not exist in vec for real")]
+    UserNotExistInVecForReal,
+    #[msg("overflow at increasing user amount")]
+    AdditionAtUpdateUserOverflow,
+    #[msg("underflow at subtracting user amount")]
+    SubtractionAtUpdateUserUnderflow,
 }
