@@ -15,8 +15,20 @@ declare_id!("73zUmjohyBGgv7JvqguwzENwrTensYbVk3WoZHMSrM2j");
 pub mod week1_challenge {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        create_vault::handler(ctx)
+    pub fn create_vault(ctx: Context<VaultOperation>) -> Result<()> {
+        ctx.accounts.create_vault(&ctx.bumps)
+    }
+
+    pub fn mint_token(ctx: Context<TokenFactory>, amount: u64, decimals: u8) -> Result<()> {
+        ctx.accounts.init_mint(amount, decimals)
+    }
+
+    pub fn add_to_whitelist(ctx: Context<WhitelistOperations>, address: Pubkey) -> Result<()> {
+        ctx.accounts.add_to_whitelist(address)
+    }
+
+    pub fn remove_from_whitelist(ctx: Context<WhitelistOperations>, address: Pubkey) -> Result<()> {
+        ctx.accounts.remove_from_whitelist(address)
     }
 }
 

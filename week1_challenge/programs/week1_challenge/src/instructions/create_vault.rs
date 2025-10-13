@@ -1,15 +1,17 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token_interface::{spl_pod::option::Nullable, Mint, TokenAccount, TokenInterface}};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{spl_pod::option::Nullable, Mint, TokenAccount, TokenInterface},
+};
 
 use crate::{error::VaultError, Vault};
-const VAULT_SEED: &[u8] = b"vault";
-
+pub const VAULT_SEED: &[u8] = b"vault";
 
 #[derive(Accounts)]
-pub struct VaultOperation {
+pub struct VaultOperation<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
-  
+
     #[account(
         init,
         payer = owner,
@@ -36,44 +38,42 @@ pub struct VaultOperation {
         init,
         payer = owner,
         associated_token::mint = mint,
-        associated_token::authority = vault_pda,
+        associated_token::authority = vault_state,
         associated_token::token_program = token_program
     )]
     pub vault_ata: InterfaceAccount<'info, TokenAccount>,
 
-
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info, AssociatedToken>
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
-
 
 impl<'info> VaultOperation<'info> {
     pub fn create_vault(&mut self, bumps: &VaultOperationBumps) -> Result<()> {
         // check that vault does not already exist
-        assert!(Pubkey::is_none(self.vault_state.owner), VaultError::VaultAlreadyExist);
-        let mint = self.min;
-        let owner = self.owner;
+        require!(
+            Pubkey::is_none(&self.vault_state.owner),
+            VaultError::VaultAlreadyExist
+        );
+        let mint = self.mint.key();
+        let owner = self.owner.key();
         let vault_bump = bumps.vault_state;
 
-        let vault = self.vault;
-        vault.set_inner(Vault{
+        let vault = &mut self.vault_state;
+        vault.set_inner(Vault {
             mint,
             owner,
-            vault_bump
+            vault_bump,
         });
+
+        Ok(())
     }
 
-    pub fn deposit(&mut self, amount: u64) 
+    // pub fn deposit(&mut self, amount: u64)
 }
-
-
-
-
-
 
 //   #[account(
 //         mut,
-//         associated_token::authority = 
+//         associated_token::authority =
 //     )]
 //     pub owner_ata: InterfaceAccount<'info, TokenAccount>,

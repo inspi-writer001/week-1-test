@@ -11,6 +11,7 @@ name = "transfer_hook"
 [features]
 default = []
 cpi = ["no-entrypoint"]
+# features = ["cpi"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
@@ -19,4 +20,8 @@ idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang = "0.31.1"
-
+anchor-spl = "0.31.1"
+# shared-types = { path = "../../../shared-types" }
+week1_challenge = { path = "../../../week1_challenge/programs/week1_challenge", features = [
+    "cpi",
+] }
