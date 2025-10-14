@@ -12,8 +12,7 @@ pub struct TokenFactory<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(
-        init,
-        payer = user,
+        mut,
         mint::decimals = 9,
         mint::authority = user,
         extensions::transfer_hook::authority = user,
@@ -22,7 +21,7 @@ pub struct TokenFactory<'info> {
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = user,
         associated_token::mint = mint,
         associated_token::authority = user,
@@ -33,7 +32,7 @@ pub struct TokenFactory<'info> {
     #[account(mut)]
     pub extra_account_meta_list: UncheckedAccount<'info>,
     #[account(
-        seeds = [b"whitelist", source_token_account.key().as_ref()], 
+        seeds = [b"whitelist"], 
         bump
     )]
     pub blocklist: Account<'info, Whitelist>,
@@ -45,7 +44,7 @@ pub struct TokenFactory<'info> {
 }
 
 impl<'info> TokenFactory<'info> {
-    pub fn init_mint(&mut self, amount: u64, decimals: u8) -> Result<()> {
+    pub fn mint_to_admin(&mut self, amount: u64, decimals: u8) -> Result<()> {
         let mint_ctx = CpiContext::new(
             self.token_program.to_account_info(),
             MintToChecked {
@@ -55,13 +54,7 @@ impl<'info> TokenFactory<'info> {
             },
         );
 
-        mint_to_checked(
-            mint_ctx,
-            amount
-                .checked_mul(decimals as u64)
-                .ok_or(VaultError::MUltiplicationAtMint)?,
-            decimals,
-        )?;
+        mint_to_checked(mint_ctx, amount, decimals)?;
 
         Ok(())
     }

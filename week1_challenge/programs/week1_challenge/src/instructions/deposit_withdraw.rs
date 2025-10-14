@@ -13,7 +13,7 @@ pub struct DepositWithdraw<'info> {
     #[account(mut)]
     pub sender: Signer<'info>,
 
-    #[account(mut)]
+    #[account()]
     pub owner: InterfaceAccount<'info, TokenAccount>,
 
     #[account(

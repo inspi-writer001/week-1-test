@@ -17,7 +17,7 @@ pub struct WhitelistOperations<'info> {
         init_if_needed,
         payer = admin,
         seeds = [b"whitelist"],
-        space = 8 + 4 + 1, // 8 bytes for discriminator, 4 bytes for vector length, (1 * 32 + 8) => 1 length_of_vec * 32 pubkey_space + 8 u64_amount, 1 byte for bump  // but this is redundant since I'm allocating the size dynamically anyway, 8 + 4 + 1 would do anyway
+        space = 8 + 4 + (1 * 32 + 8) + 1, // 8 bytes for discriminator, 4 bytes for vector length, (1 * 32 + 8) => 1 length_of_vec * 32 pubkey_space + 8 u64_amount, 1 byte for bump  // but this is redundant since I'm allocating the size dynamically anyway, 8 + 4 + 1 would do anyway
         bump,
     )]
     pub whitelist: Account<'info, Whitelist>,
@@ -89,7 +89,7 @@ impl<'info> WhitelistOperations<'info> {
             system_program::transfer(cpi_context, rent_diff)?;
 
             // Reallocate the account
-            account_info.realloc(new_account_size, false)?;
+            account_info.resize(new_account_size)?;
             msg!("Account Size Updated: {}", account_info.data_len());
         } else {
             // Removing from whitelist
@@ -100,7 +100,7 @@ impl<'info> WhitelistOperations<'info> {
             let rent_diff = account_info.lamports() - lamports_required;
 
             // Reallocate the account
-            account_info.realloc(new_account_size, false)?;
+            account_info.resize(new_account_size)?;
             msg!("Account Size Downgraded: {}", account_info.data_len());
 
             // Perform transfer to refund additional rent

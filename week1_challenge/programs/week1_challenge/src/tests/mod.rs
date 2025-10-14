@@ -94,9 +94,11 @@ mod tests {
 
         let mint = Keypair::new();
 
-        svm.add_program(hook_program_id, &hook_program_data);
+        svm.add_program(hook_program_id, &hook_program_data)
+            .expect("failed to add hook program");
 
-        svm.add_program(program_id, &program_data);
+        svm.add_program(program_id, &program_data)
+            .expect("failed to add vault program");
 
         let vault_state =
             Pubkey::find_program_address(&[&mint.pubkey().to_bytes(), b"vault"], &program_id).0;
@@ -168,6 +170,9 @@ mod tests {
             reusable_data.admin.pubkey(),
             "Account wasn't set correctly in Vault"
         );
+
+        let mint_account = svm.get_account(&reusable_data.mint.pubkey()).unwrap();
+        msg!("MINT Data Length: {}", mint_account.data.len());
 
         // 🔥🔥 [2] initialize transfer hook
 
@@ -250,11 +255,20 @@ mod tests {
 
         svm.send_transaction(transaction).unwrap();
 
-        let contains_address = crate::state::Whitelist::contains_address(
-            &crate::state::Whitelist::try_deserialize(&mut whitelist.as_ref()).unwrap(),
-            &new_user_ata,
-        );
+        let whitelist_account_info = svm.get_account(&whitelist).unwrap();
+        let mut whitelist_data_slice: &[u8] = whitelist_account_info.data.as_ref();
 
+        let fetched_whitelist_state =
+            crate::state::Whitelist::try_deserialize(&mut whitelist_data_slice)
+                .expect("Failed to deserialize Whitelist account data. Check initialization.");
+
+        // 4. Use the deserialized struct to check the address.
+        let contains_address = fetched_whitelist_state.contains_address(&new_user_ata.key());
+
+        assert!(
+            contains_address,
+            "You were not successfully added to the whitelist"
+        );
         msg!("contains you: {}", contains_address);
 
         // 🔥🔥🔥 [4] mint token to self
@@ -295,13 +309,17 @@ mod tests {
         let transaction = Transaction::new_signed_with_payer(
             &[mint_token_ix],
             Some(&reusable_data.admin.pubkey()),
-            &[&reusable_data.admin, &reusable_data.mint],
+            &[&reusable_data.admin],
             recent_blockhash,
         );
 
-        svm.send_transaction(transaction).unwrap();
+        let tx_result = svm.send_transaction(transaction);
 
-        let new_state_of_admin_ata = svm.get_account(&admin_ata).unwrap();
+        // You can log the error if you want to inspect it without panicking:
+        match tx_result {
+            Ok(meta) => meta,
+            Err(e) => panic!("MintToken transaction failed! Error: {:?}", e),
+        };
 
         // 1. Fetch the raw account data
         let new_state_of_admin_ata = svm.get_account(&admin_ata).unwrap();
@@ -309,23 +327,65 @@ mod tests {
         // 2. Get the data as a mutable slice (&[u8] or &mut [u8])
         let account_data_slice: &[u8] = new_state_of_admin_ata.data.as_ref();
 
-        // 3. Use Pack::unpack (or TokenAccount::unpack, which calls the trait implementation)
-        //    TokenAccount is from the spl_token_2022 crate.
-        use anchor_spl::token_2022::spl_token_2022::state::Account as TokenAccountState;
+        const AMOUNT_OFFSET: usize = 64; // The fixed position of the u64 'amount' field
+        const U64_SIZE: usize = 8;
 
-        let fetched_admin_ata_state = TokenAccountState::unpack(account_data_slice).unwrap();
+        if account_data_slice.len() < AMOUNT_OFFSET + U64_SIZE {
+            panic!(
+                "FATAL: Account data too short to contain token balance. Length: {}",
+                account_data_slice.len()
+            );
+        }
 
-        // Example of checking the balance:
-        msg!(
-            "Admin ATA token balance: {}",
-            fetched_admin_ata_state.amount
+        // Read 8 bytes starting at offset 64
+        let amount_bytes: [u8; U64_SIZE] = account_data_slice
+            [AMOUNT_OFFSET..AMOUNT_OFFSET + U64_SIZE]
+            .try_into()
+            .expect("Slice to array conversion failed");
+
+        // Convert the bytes to a u64 (Solana uses little-endian)
+        let token_balance = u64::from_le_bytes(amount_bytes);
+
+        // --- Verification ---
+
+        // You are now successfully reading the balance directly.
+        msg!("Admin ATA token balance (POD Read): {}", token_balance);
+
+        // Assert that the mint was successful (10,000 tokens)
+        assert_eq!(
+            token_balance, 10_000,
+            "Token balance after minting is incorrect."
         );
-        // let fetched_ata_state =
-        //     crate::Account::try_from(&new_state_of_admin_ata.data.to_account_info()).unwrap();
-
-        // msg!("New Admin Balance: {:?}", fetched_metalist_state.amount);
 
         // 🔥🔥🔥🔥🔥 [5] deposit
+
+        let deposit_to_vault_ix = Instruction {
+            program_id: PROGRAM_ID,
+            accounts: crate::accounts::DepositWithdraw {
+                associated_token_program: reusable_data.ata_program.key(),
+                hook_program_id: TRANSFER_HOOK_PROGRAM_ID.key(),
+                mint: reusable_data.mint.pubkey(),
+                owner: reusable_data.admin.pubkey(),
+                sender: new_user.pubkey(),
+                system_program: reusable_data.system_program.key(),
+                token_program: reusable_data.token_program.key(),
+                user_ata: new_user_ata.key(),
+                vault_ata: reusable_data.vault_ata.key(),
+                vault_state: reusable_data.vault_state.key(),
+                whitelist: whitelist.key(),
+            }
+            .to_account_metas(None),
+            data: crate::instruction::Deposit { amount: 100 }.data(),
+        };
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[deposit_to_vault_ix],
+            Some(&new_user.pubkey()),
+            &[&new_user],
+            recent_blockhash,
+        );
+
+        let tx_result = svm.send_transaction(transaction);
 
         // 🔥🔥🔥🔥🔥 [6] remove from whitelist
 

@@ -27,7 +27,7 @@ pub mod week1_challenge {
     }
 
     pub fn mint_token(ctx: Context<TokenFactory>, amount: u64, decimals: u8) -> Result<()> {
-        ctx.accounts.init_mint(amount, decimals)
+        ctx.accounts.mint_to_admin(amount, decimals)
     }
 
     pub fn add_to_whitelist(
