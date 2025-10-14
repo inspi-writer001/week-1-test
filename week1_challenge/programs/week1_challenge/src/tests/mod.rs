@@ -146,14 +146,14 @@ mod tests {
 
         let recent_blockhash = svm.latest_blockhash();
 
-        let transaction = Transaction::new_signed_with_payer(
+        let transaction1 = Transaction::new_signed_with_payer(
             &[create_vault_ix],
             Some(&reusable_data.admin.pubkey()),
             &[&reusable_data.admin, &reusable_data.mint],
             recent_blockhash,
         );
 
-        svm.send_transaction(transaction).unwrap();
+        svm.send_transaction(transaction1).unwrap();
 
         let new_state_of_vault = svm.get_account(&reusable_data.vault_state).unwrap();
         let fetched_vault_state =
@@ -199,14 +199,14 @@ mod tests {
 
         let recent_blockhash = svm.latest_blockhash();
 
-        let transaction = Transaction::new_signed_with_payer(
+        let transaction2 = Transaction::new_signed_with_payer(
             &[initialize_transfer_hook_ix],
             Some(&reusable_data.admin.pubkey()),
             &[&reusable_data.admin],
             recent_blockhash,
         );
 
-        svm.send_transaction(transaction).unwrap();
+        svm.send_transaction(transaction2).unwrap();
 
         let new_state_of_metalist = svm.get_account(&reusable_data.vault_state).unwrap();
         // let fetched_metalist_state =
@@ -246,14 +246,14 @@ mod tests {
 
         let recent_blockhash = svm.latest_blockhash();
 
-        let transaction = Transaction::new_signed_with_payer(
+        let transaction3 = Transaction::new_signed_with_payer(
             &[add_to_whitelist_ix],
             Some(&reusable_data.admin.pubkey()),
             &[&reusable_data.admin],
             recent_blockhash,
         );
 
-        svm.send_transaction(transaction).unwrap();
+        svm.send_transaction(transaction3).unwrap();
 
         let whitelist_account_info = svm.get_account(&whitelist).unwrap();
         let mut whitelist_data_slice: &[u8] = whitelist_account_info.data.as_ref();
@@ -306,20 +306,14 @@ mod tests {
 
         let recent_blockhash = svm.latest_blockhash();
 
-        let transaction = Transaction::new_signed_with_payer(
+        let transaction4 = Transaction::new_signed_with_payer(
             &[mint_token_ix],
             Some(&reusable_data.admin.pubkey()),
             &[&reusable_data.admin],
             recent_blockhash,
         );
 
-        let tx_result = svm.send_transaction(transaction);
-
-        // You can log the error if you want to inspect it without panicking:
-        match tx_result {
-            Ok(meta) => meta,
-            Err(e) => panic!("MintToken transaction failed! Error: {:?}", e),
-        };
+        svm.send_transaction(transaction4).unwrap();
 
         // 1. Fetch the raw account data
         let new_state_of_admin_ata = svm.get_account(&admin_ata).unwrap();
@@ -359,6 +353,26 @@ mod tests {
 
         // 🔥🔥🔥🔥🔥 [5] deposit
 
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &new_user.pubkey(),                 // 1. funding_address (Payer)
+                &new_user.pubkey(),                 // 2. wallet_address (Owner of the ATA)
+                &reusable_data.mint.pubkey(),       // 3. token_mint_address
+                &reusable_data.token_program.key(), // 4. token_program_id (Token-2022 ID)
+            );
+
+        let recent_blockhash_ata = svm.latest_blockhash();
+
+        let transaction_create_ata = Transaction::new_signed_with_payer(
+            &[create_ata_ix],
+            Some(&new_user.pubkey()),
+            &[&new_user], // Must be signed by the payer
+            recent_blockhash_ata,
+        );
+
+        // 🛑 Send and assert success for the creation
+        svm.send_transaction(transaction_create_ata).unwrap();
+
         let deposit_to_vault_ix = Instruction {
             program_id: PROGRAM_ID,
             accounts: crate::accounts::DepositWithdraw {
@@ -378,14 +392,14 @@ mod tests {
             data: crate::instruction::Deposit { amount: 100 }.data(),
         };
 
-        let transaction = Transaction::new_signed_with_payer(
+        let transaction5 = Transaction::new_signed_with_payer(
             &[deposit_to_vault_ix],
             Some(&new_user.pubkey()),
             &[&new_user],
             recent_blockhash,
         );
 
-        let tx_result = svm.send_transaction(transaction);
+        svm.send_transaction(transaction5).unwrap();
 
         // 🔥🔥🔥🔥🔥 [6] remove from whitelist
 

@@ -13,8 +13,9 @@ pub struct DepositWithdraw<'info> {
     #[account(mut)]
     pub sender: Signer<'info>,
 
-    #[account()]
-    pub owner: InterfaceAccount<'info, TokenAccount>,
+    /// CHECK: owner is admin of platform
+    #[account(mut)]
+    pub owner: UncheckedAccount<'info>,
 
     #[account(
         mut,
