@@ -3,11 +3,13 @@ mod tests {
 
     use {
         anchor_lang::{
+            error::Error,
+            prelude::msg,
             solana_program::{
                 hash::Hash, native_token::LAMPORTS_PER_SOL, program_pack::Pack, pubkey::Pubkey,
             },
             system_program::ID as SYSTEM_PROGRAM_ID,
-            AccountDeserialize, InstructionData, ToAccountMetas,
+            AccountDeserialize, InstructionData, Key, ToAccountMetas,
         },
         anchor_spl::{
             associated_token::{self, spl_associated_token_account},
@@ -122,7 +124,7 @@ mod tests {
     pub fn modify_name() {
         let (mut svm, reusable_data) = setup();
 
-        // create mint [mint_token]
+        // 🔥 [1] create vault
 
         let create_vault_ix = Instruction {
             program_id: PROGRAM_ID,
@@ -149,19 +151,185 @@ mod tests {
             recent_blockhash,
         );
 
-        let tx = svm.send_transaction(transaction).unwrap();
+        svm.send_transaction(transaction).unwrap();
 
-        // initialize transfer hook
+        let new_state_of_vault = svm.get_account(&reusable_data.vault_state).unwrap();
+        let fetched_vault_state =
+            crate::state::Vault::try_deserialize(&mut new_state_of_vault.data.as_ref()).unwrap();
 
-        // create vault
+        assert_eq!(
+            fetched_vault_state.mint.key(),
+            reusable_data.mint.pubkey(),
+            "Account wasn't set correctly in Vault"
+        );
 
-        // add to whitelist
+        assert_eq!(
+            fetched_vault_state.owner.key(),
+            reusable_data.admin.pubkey(),
+            "Account wasn't set correctly in Vault"
+        );
 
-        // deposit
+        // 🔥🔥 [2] initialize transfer hook
 
-        // remove from whitelist
+        let extra_account_meta_list = Pubkey::find_program_address(
+            &[
+                b"extra-account-metas",
+                &reusable_data.mint.pubkey().as_ref(),
+            ],
+            &TRANSFER_HOOK_PROGRAM_ID,
+        )
+        .0;
 
-        // withdraw
+        let initialize_transfer_hook_ix = Instruction {
+            program_id: TRANSFER_HOOK_PROGRAM_ID,
+            accounts: crate::accounts::InitializeExtraAccountMetaList {
+                extra_account_meta_list,
+                mint: reusable_data.mint.pubkey(),
+                payer: reusable_data.admin.pubkey(),
+                system_program: reusable_data.system_program.key(),
+            }
+            .to_account_metas(None),
+            data: crate::instruction::InitializeTransferHook {}.data(),
+        };
+
+        let recent_blockhash = svm.latest_blockhash();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[initialize_transfer_hook_ix],
+            Some(&reusable_data.admin.pubkey()),
+            &[&reusable_data.admin],
+            recent_blockhash,
+        );
+
+        svm.send_transaction(transaction).unwrap();
+
+        let new_state_of_metalist = svm.get_account(&reusable_data.vault_state).unwrap();
+        // let fetched_metalist_state =
+        //     crate::AccountInfo::try_borrow_data(&new_state_of_metalist).unwrap();
+
+        msg!("MetaList state: {:?}", new_state_of_metalist.data);
+
+        // 🔥🔥🔥🔥 [3] add to whitelist
+        let whitelist = Pubkey::find_program_address(&[b"whitelist"], &PROGRAM_ID.key()).0;
+
+        let new_user = Keypair::new();
+
+        svm.airdrop(&new_user.pubkey(), 10 * LAMPORTS_PER_SOL)
+            .expect("Failed to airdrop SOL to payer");
+
+        let new_user_ata = associated_token::get_associated_token_address_with_program_id(
+            &new_user.pubkey(),
+            &reusable_data.mint.pubkey(),
+            &reusable_data.token_program.key(),
+        );
+
+        let add_to_whitelist_ix = Instruction {
+            program_id: PROGRAM_ID,
+            accounts: crate::accounts::WhitelistOperations {
+                whitelist: whitelist.key(),
+                vault: reusable_data.vault_state.key(),
+                admin: reusable_data.admin.pubkey(),
+                system_program: reusable_data.system_program.key(),
+            }
+            .to_account_metas(None),
+            data: crate::instruction::AddToWhitelist {
+                address: new_user_ata.key(),
+                mint: reusable_data.mint.pubkey(),
+            }
+            .data(),
+        };
+
+        let recent_blockhash = svm.latest_blockhash();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[add_to_whitelist_ix],
+            Some(&reusable_data.admin.pubkey()),
+            &[&reusable_data.admin],
+            recent_blockhash,
+        );
+
+        svm.send_transaction(transaction).unwrap();
+
+        let contains_address = crate::state::Whitelist::contains_address(
+            &crate::state::Whitelist::try_deserialize(&mut whitelist.as_ref()).unwrap(),
+            &new_user_ata,
+        );
+
+        msg!("contains you: {}", contains_address);
+
+        // 🔥🔥🔥 [4] mint token to self
+
+        // let new_user = Keypair::new();
+        let admin_ata = associated_token::get_associated_token_address_with_program_id(
+            &reusable_data.admin.pubkey(),
+            &reusable_data.mint.pubkey(),
+            &reusable_data.token_program.key(),
+        );
+
+        //  svm.airdrop(&admin.pubkey(), 10 * LAMPORTS_PER_SOL)
+        //     .expect("Failed to airdrop SOL to payer");
+
+        let mint_token_ix = Instruction {
+            program_id: PROGRAM_ID,
+            accounts: crate::accounts::TokenFactory {
+                extra_account_meta_list,
+                mint: reusable_data.mint.pubkey(),
+                associated_token_program: reusable_data.ata_program.key(),
+                blocklist: whitelist,
+                hook_program_id: TRANSFER_HOOK_PROGRAM_ID.key(),
+                source_token_account: admin_ata.key(),
+                system_program: reusable_data.system_program.key(),
+                token_program: reusable_data.token_program.key(),
+                user: reusable_data.admin.pubkey(),
+            }
+            .to_account_metas(None),
+            data: crate::instruction::MintToken {
+                amount: 10_000,
+                decimals: 9,
+            }
+            .data(),
+        };
+
+        let recent_blockhash = svm.latest_blockhash();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[mint_token_ix],
+            Some(&reusable_data.admin.pubkey()),
+            &[&reusable_data.admin, &reusable_data.mint],
+            recent_blockhash,
+        );
+
+        svm.send_transaction(transaction).unwrap();
+
+        let new_state_of_admin_ata = svm.get_account(&admin_ata).unwrap();
+
+        // 1. Fetch the raw account data
+        let new_state_of_admin_ata = svm.get_account(&admin_ata).unwrap();
+
+        // 2. Get the data as a mutable slice (&[u8] or &mut [u8])
+        let account_data_slice: &[u8] = new_state_of_admin_ata.data.as_ref();
+
+        // 3. Use Pack::unpack (or TokenAccount::unpack, which calls the trait implementation)
+        //    TokenAccount is from the spl_token_2022 crate.
+        use anchor_spl::token_2022::spl_token_2022::state::Account as TokenAccountState;
+
+        let fetched_admin_ata_state = TokenAccountState::unpack(account_data_slice).unwrap();
+
+        // Example of checking the balance:
+        msg!(
+            "Admin ATA token balance: {}",
+            fetched_admin_ata_state.amount
+        );
+        // let fetched_ata_state =
+        //     crate::Account::try_from(&new_state_of_admin_ata.data.to_account_info()).unwrap();
+
+        // msg!("New Admin Balance: {:?}", fetched_metalist_state.amount);
+
+        // 🔥🔥🔥🔥🔥 [5] deposit
+
+        // 🔥🔥🔥🔥🔥 [6] remove from whitelist
+
+        // 🔥🔥🔥🔥🔥 [7] withdraw
     }
 
     #[test]

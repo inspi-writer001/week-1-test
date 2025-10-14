@@ -35,7 +35,7 @@ pub struct TransferHook<'info> {
     /// CHECK: ExtraAccountMetaList Account,
     #[account(
         seeds = [b"extra-account-metas", mint.key().as_ref()], 
-        bump
+        bump,
     )]
     pub extra_account_meta_list: UncheckedAccount<'info>,
     #[account(
