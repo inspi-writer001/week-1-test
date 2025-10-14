@@ -2,6 +2,7 @@ pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod state;
+mod tests;
 
 use anchor_lang::prelude::*;
 
@@ -29,11 +30,19 @@ pub mod week1_challenge {
         ctx.accounts.init_mint(amount, decimals)
     }
 
-    pub fn add_to_whitelist(ctx: Context<WhitelistOperations>, address: Pubkey) -> Result<()> {
+    pub fn add_to_whitelist(
+        ctx: Context<WhitelistOperations>,
+        address: Pubkey,
+        mint: Pubkey,
+    ) -> Result<()> {
         ctx.accounts.add_to_whitelist(address)
     }
 
-    pub fn remove_from_whitelist(ctx: Context<WhitelistOperations>, address: Pubkey) -> Result<()> {
+    pub fn remove_from_whitelist(
+        ctx: Context<WhitelistOperations>,
+        address: Pubkey,
+        mint: Pubkey,
+    ) -> Result<()> {
         ctx.accounts.remove_from_whitelist(address)
     }
 

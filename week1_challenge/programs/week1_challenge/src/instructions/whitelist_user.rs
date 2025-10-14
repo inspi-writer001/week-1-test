@@ -89,7 +89,7 @@ impl<'info> WhitelistOperations<'info> {
             system_program::transfer(cpi_context, rent_diff)?;
 
             // Reallocate the account
-            account_info.resize(new_account_size)?;
+            account_info.realloc(new_account_size, false)?;
             msg!("Account Size Updated: {}", account_info.data_len());
         } else {
             // Removing from whitelist
@@ -100,7 +100,7 @@ impl<'info> WhitelistOperations<'info> {
             let rent_diff = account_info.lamports() - lamports_required;
 
             // Reallocate the account
-            account_info.resize(new_account_size)?;
+            account_info.realloc(new_account_size, false)?;
             msg!("Account Size Downgraded: {}", account_info.data_len());
 
             // Perform transfer to refund additional rent

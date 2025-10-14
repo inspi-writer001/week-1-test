@@ -16,4 +16,5 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "pnpm exec ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "cargo test -- --nocapture"
+# test = "pnpm exec ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
