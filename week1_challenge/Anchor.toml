@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-week1_challenge = "73zUmjohyBGgv7JvqguwzENwrTensYbVk3WoZHMSrM2j"
+week1_challenge = "AkTTSsoAmjbmDQTVzFmoEWJ5o2j78xGBtSVuB68irJiJ"
 
 [registry]
 url = "https://api.apr.dev"

@@ -1,9 +1,11 @@
 
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::program::invoke};
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_interface::{ Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked},
+    token_interface::{ Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}
 };
+use spl_token_2022::{onchain,instruction as token_instruction};
+
 
 use crate::{error::VaultError, Vault, Whitelist};
 pub const VAULT_SEED: &[u8] = b"vault";
@@ -52,6 +54,8 @@ pub struct DepositWithdraw<'info> {
         bump = whitelist.whitelist_bump,
     )]
     pub whitelist: Account<'info, Whitelist>,
+    /// CHECK: Account containing the extra account
+    pub extra_account_meta_list: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -59,24 +63,78 @@ pub struct DepositWithdraw<'info> {
 }
 
 impl<'info> DepositWithdraw<'info> {
-    pub fn deposit(&mut self, amount: u64) -> Result<()> {
+    pub fn deposit(&mut self, amount: u64, remaining_accounts: &[AccountInfo<'info>]) -> Result<()> {
 
         require!(self.user_ata.amount >= amount,VaultError::InsufficientBalance);
 
-        let transfer_accounts = TransferChecked{
-             authority: self.sender.to_account_info(),
-             from: self.user_ata.to_account_info(),
-             mint: self.mint.to_account_info(),
-             to: self.vault_ata.to_account_info()
-        };
+          // 1. Manually build the `transfer_checked` instruction provided by the SPL Token program.
+        let mut transfer_ix = token_instruction::transfer_checked(
+            &self.token_program.key(),
+            &self.user_ata.key(),
+            &self.mint.key(),
+            &self.vault_ata.key(),
+            &self.sender.key(),
+            &[], // No multisig signers are needed.
+            amount,
+            self.mint.decimals,
+        )?;
 
-        let transfer_ctx = CpiContext::new(self.token_program.to_account_info(), transfer_accounts);
+        // 2. Manually add the extra accounts required by the transfer hook.
+        // The Token 2022 program expects these to follow the core transfer accounts.
+        transfer_ix.accounts.push(AccountMeta::new_readonly(self.extra_account_meta_list.key(), false));
+        transfer_ix.accounts.push(AccountMeta::new(self.whitelist.key(), false));
+        
 
-        transfer_checked(transfer_ctx, amount, self.mint.decimals)?;
+        // 3. Create a flat list of all AccountInfos that the instruction needs.
+        // This includes all accounts for the core transfer and the hook.
+        let account_infos = &[
+            self.user_ata.to_account_info(),
+            self.mint.to_account_info(),
+            self.vault_ata.to_account_info(),
+            self.sender.to_account_info(),
+            self.token_program.to_account_info(), // The Token Program must be in this list for `invoke`
+            self.extra_account_meta_list.to_account_info(),
+            self.whitelist.to_account_info(),
+            self.hook_program_id.to_account_info(),
+        ];
 
+        // 4. Use the low-level `invoke` function to execute the CPI.
+        invoke(&transfer_ix, account_infos)?;
 
+        // let  account_infos = vec![
+        // // self.user_ata.to_account_info(),          // source
+        // // self.mint.to_account_info(),               // mint
+        // // self.vault_ata.to_account_info(),          // destination
+        // // self.sender.to_account_info(),             // authority
+        // self.extra_account_meta_list.to_account_info(),
+        // self.whitelist.to_account_info()
+        // ];
 
-        // update user amount in vec
+    // onchain::invoke_transfer_checked(
+    //     &self.token_program.key(),
+    //     self.user_ata.to_account_info(),
+    //     self.mint.to_account_info(),
+    //     self.vault_ata.to_account_info(),
+    //     self.sender.to_account_info(),
+    //     &remaining_accounts.to_vec(),
+    //     amount,
+    //     self.mint.decimals,
+    //     &[],  // No signer seeds needed here
+    // )?;
+
+        // let transfer_accounts = TransferChecked{
+        //      authority: self.sender.to_account_info(),
+        //      from: self.user_ata.to_account_info(),
+        //      mint: self.mint.to_account_info(),
+        //      to: self.vault_ata.to_account_info()
+        // };
+
+        
+        // let  transfer_ctx = CpiContext::new(self.token_program.to_account_info(), transfer_accounts).with_remaining_accounts(account_infos.to_vec());
+
+        
+
+        // transfer_checked(transfer_ctx, amount, self.mint.decimals)?;
         let user_key = self.user_ata.key();
     
     // Try to find existing entry
@@ -88,7 +146,7 @@ impl<'info> DepositWithdraw<'info> {
         Ok(())
     }
 
-    pub fn withdraw(&mut self, amount: u64) -> Result<()> {
+    pub fn withdraw(&mut self, amount: u64, remaining_accounts: &[AccountInfo<'info>]) -> Result<()> {
 
         // check that user exists in map
         let is_user_exist = self.whitelist.contains_address(&self.user_ata.key());
@@ -123,7 +181,9 @@ impl<'info> DepositWithdraw<'info> {
 
         let transfer_context = CpiContext::new_with_signer(self.token_program.to_account_info(), transfer_accounts, new_vault_seed);
 
-        transfer_checked(transfer_context, amount, self.mint.decimals)?;
+         let extra_added_accounts = CpiContext::with_remaining_accounts(transfer_context, remaining_accounts.to_vec());
+
+        transfer_checked(extra_added_accounts, amount, self.mint.decimals)?;
 
         // deduct amount from user vec vault balance
 

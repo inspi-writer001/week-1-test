@@ -6,6 +6,7 @@ use anchor_lang::prelude::*;
 pub struct Whitelist {
     pub address: Vec<(Pubkey, u64, bool)>,
     pub whitelist_bump: u8,
+    pub admin: Pubkey,
 }
 
 impl Whitelist {
@@ -26,13 +27,13 @@ impl Whitelist {
 // pub fn test() {
 //     let new_whitelist: Whitelist = Whitelist {
 //         address: vec![(
-//             Pubkey::from_str_const("73zUmjohyBGgv7JvqguwzENwrTensYbVk3WoZHMSrM2j"),
+//             Pubkey::from_str_const("AkTTSsoAmjbmDQTVzFmoEWJ5o2j78xGBtSVuB68irJiJ"),
 //             20,
 //         )],
 //         whitelist_bump: 2,
 //     };
 
 //     let is_whitelist = new_whitelist.contains_address(&Pubkey::from_str_const(
-//         "73zUmjohyBGgv7JvqguwzENwrTensYbVk3WoZHMSrM2j",
+//         "AkTTSsoAmjbmDQTVzFmoEWJ5o2j78xGBtSVuB68irJiJ",
 //     ));
 // }

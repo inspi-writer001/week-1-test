@@ -26,12 +26,12 @@ pub struct InitializeExtraAccountMetaList<'info> {
 
 impl<'info> InitializeExtraAccountMetaList<'info> {
     pub fn extra_account_metas() -> Result<Vec<ExtraAccountMeta>> {
-        Ok(vec![ExtraAccountMeta::new_with_seeds(
-            &[Seed::Literal {
-                bytes: b"whitelist".to_vec(),
-            }],
+        let (whitelist_pubkey, _bump) =
+            Pubkey::find_program_address(&[b"whitelist"], &week1_challenge::ID);
+        Ok(vec![ExtraAccountMeta::new_with_pubkey(
+            &whitelist_pubkey,
             false, // is_signer
-            false, // is_writable
+            true,
         )?])
     }
 }

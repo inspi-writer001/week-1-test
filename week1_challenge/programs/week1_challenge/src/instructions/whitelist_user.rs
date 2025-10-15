@@ -1,4 +1,5 @@
 use anchor_lang::{prelude::*, system_program};
+use anchor_spl::token_interface::spl_pod::option::Nullable;
 
 use crate::{state::whitelist::Whitelist, Vault};
 
@@ -25,17 +26,23 @@ pub struct WhitelistOperations<'info> {
     #[account(
         mut @VaultError::VaultNotCreatedByAdmin,
         seeds = [mint.key().as_ref(), VAULT_SEED],
-        bump = vault.vault_bump,
-        
+        bump = vault.vault_bump,        
     )]
     pub vault: Account<'info, Vault>,
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> WhitelistOperations<'info> {
-    pub fn add_to_whitelist(&mut self, address: Pubkey) -> Result<()> {
+    pub fn add_to_whitelist(&mut self, address: Pubkey, bumps: &WhitelistOperationsBumps) -> Result<()> {
 
+        
         let whitelist_accounts = &mut self.whitelist;
+
+        // create the whitelist state if it does not exist
+        if Pubkey::is_none(&whitelist_accounts.admin) {
+            whitelist_accounts.admin = self.admin.key();
+            whitelist_accounts.whitelist_bump = bumps.whitelist;
+        }
 
         if !whitelist_accounts.contains_address(&address) {
             self.realloc_whitelist(true)?;

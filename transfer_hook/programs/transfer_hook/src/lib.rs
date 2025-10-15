@@ -21,6 +21,7 @@ declare_id!("Augb2132S5P1yXCYj7nNZTyksUhCA3k7G5z8SS3o8geh");
 pub mod transfer_hook {
     use super::*;
 
+    #[instruction(discriminator = ExecuteInstruction::SPL_DISCRIMINATOR_SLICE)]
     pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
         ctx.accounts.transfer_hook(amount)
     }

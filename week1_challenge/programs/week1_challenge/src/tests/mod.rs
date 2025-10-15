@@ -4,7 +4,7 @@ mod tests {
     use {
         anchor_lang::{
             error::Error,
-            prelude::msg,
+            prelude::{msg, AccountMeta},
             solana_program::{
                 hash::Hash, native_token::LAMPORTS_PER_SOL, program_pack::Pack, pubkey::Pubkey,
             },
@@ -51,8 +51,7 @@ mod tests {
     // }
 
     use crate::ID as PROGRAM_ID;
-    const TRANSFER_HOOK_PROGRAM_ID: Pubkey =
-        Pubkey::from_str_const("Augb2132S5P1yXCYj7nNZTyksUhCA3k7G5z8SS3o8geh");
+    const TRANSFER_HOOK_PROGRAM_ID: Pubkey = transfer_hook::ID;
 
     pub struct ReusableData {
         ata_program: Pubkey,
@@ -123,9 +122,9 @@ mod tests {
     }
 
     #[test]
-    pub fn modify_name() {
+    pub fn test_full_deposit_workflow() {
         let (mut svm, reusable_data) = setup();
-
+        msg!("here's the hook id: {}", TRANSFER_HOOK_PROGRAM_ID);
         // 🔥 [1] create vault
 
         let create_vault_ix = Instruction {
@@ -187,14 +186,14 @@ mod tests {
 
         let initialize_transfer_hook_ix = Instruction {
             program_id: TRANSFER_HOOK_PROGRAM_ID,
-            accounts: crate::accounts::InitializeExtraAccountMetaList {
+            accounts: transfer_hook::accounts::InitializeExtraAccountMetaList {
                 extra_account_meta_list,
                 mint: reusable_data.mint.pubkey(),
                 payer: reusable_data.admin.pubkey(),
                 system_program: reusable_data.system_program.key(),
             }
             .to_account_metas(None),
-            data: crate::instruction::InitializeTransferHook {}.data(),
+            data: transfer_hook::instruction::InitializeTransferHook {}.data(),
         };
 
         let recent_blockhash = svm.latest_blockhash();
@@ -355,10 +354,10 @@ mod tests {
 
         let create_ata_ix =
             spl_associated_token_account::instruction::create_associated_token_account(
-                &new_user.pubkey(),                 // 1. funding_address (Payer)
-                &new_user.pubkey(),                 // 2. wallet_address (Owner of the ATA)
-                &reusable_data.mint.pubkey(),       // 3. token_mint_address
-                &reusable_data.token_program.key(), // 4. token_program_id (Token-2022 ID)
+                &new_user.pubkey(),
+                &new_user.pubkey(),
+                &reusable_data.mint.pubkey(),
+                &reusable_data.token_program.key(),
             );
 
         let recent_blockhash_ata = svm.latest_blockhash();
@@ -370,8 +369,49 @@ mod tests {
             recent_blockhash_ata,
         );
 
-        // 🛑 Send and assert success for the creation
         svm.send_transaction(transaction_create_ata).unwrap();
+
+        let mint_to_ix = spl_token_2022::instruction::mint_to_checked(
+            &reusable_data.token_program.key(),
+            &reusable_data.mint.pubkey(),
+            &new_user_ata,
+            &reusable_data.admin.pubkey(),
+            &[],    // Signer Pubkeys (not needed if authority signs the tx)
+            20_000, // Amount
+            9,      // Decimals
+        )
+        .unwrap();
+
+        let recent_blockhash = svm.latest_blockhash();
+
+        let transaction_mint = Transaction::new_signed_with_payer(
+            &[mint_to_ix],
+            Some(&reusable_data.admin.pubkey()),
+            &[&reusable_data.admin],
+            recent_blockhash,
+        );
+        svm.send_transaction(transaction_mint).unwrap();
+
+        // confirm that the mint went through successfully
+        let new_state_of_user_ata = svm.get_account(&new_user_ata).unwrap();
+        let user_ata_slice: &[u8] = new_state_of_user_ata.data.as_ref();
+
+        let amount_bytes: [u8; U64_SIZE] = user_ata_slice[AMOUNT_OFFSET..AMOUNT_OFFSET + U64_SIZE]
+            .try_into()
+            .expect("Slice to array conversion failed");
+
+        // Convert the bytes to a u64 (Solana uses little-endian)
+        let new_user_token_balance = u64::from_le_bytes(amount_bytes);
+
+        msg!(
+            "User ATA token balance (POD Read): {}",
+            new_user_token_balance
+        );
+
+        assert_eq!(
+            new_user_token_balance, 20_000,
+            "Token balance after minting is incorrect."
+        );
 
         let deposit_to_vault_ix = Instruction {
             program_id: PROGRAM_ID,
@@ -386,11 +426,18 @@ mod tests {
                 user_ata: new_user_ata.key(),
                 vault_ata: reusable_data.vault_ata.key(),
                 vault_state: reusable_data.vault_state.key(),
+                extra_account_meta_list: extra_account_meta_list.key(),
                 whitelist: whitelist.key(),
             }
             .to_account_metas(None),
             data: crate::instruction::Deposit { amount: 100 }.data(),
         };
+
+        // deposit_to_vault_ix.accounts.push(AccountMeta {
+        //     pubkey: whitelist.key(),
+        //     is_signer: false,
+        //     is_writable: false,
+        // });
 
         let transaction5 = Transaction::new_signed_with_payer(
             &[deposit_to_vault_ix],
@@ -402,10 +449,33 @@ mod tests {
         svm.send_transaction(transaction5).unwrap();
 
         // 🔥🔥🔥🔥🔥 [6] remove from whitelist
+        let remove_from_whitelist_ix = Instruction {
+            program_id: PROGRAM_ID,
+            accounts: crate::accounts::WhitelistOperations {
+                whitelist: whitelist.key(),
+                vault: reusable_data.vault_state.key(),
+                admin: reusable_data.admin.pubkey(),
+                system_program: reusable_data.system_program.key(),
+            }
+            .to_account_metas(None),
+            data: crate::instruction::RemoveFromWhitelist {
+                address: new_user_ata.key(),
+                mint: reusable_data.mint.pubkey(),
+            }
+            .data(),
+        };
+
+        let recent_blockhash = svm.latest_blockhash();
+
+        let transaction3 = Transaction::new_signed_with_payer(
+            &[remove_from_whitelist_ix],
+            Some(&reusable_data.admin.pubkey()),
+            &[&reusable_data.admin],
+            recent_blockhash,
+        );
+
+        svm.send_transaction(transaction3).unwrap();
 
         // 🔥🔥🔥🔥🔥 [7] withdraw
     }
-
-    #[test]
-    pub fn say_name() {}
 }
