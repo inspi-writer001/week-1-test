@@ -27,7 +27,7 @@ pub mod week1_challenge {
     pub fn add_to_whitelist(
         ctx: Context<WhitelistOperations>,
         address: Pubkey,
-        mint: Pubkey,
+        _mint: Pubkey,
     ) -> Result<()> {
         ctx.accounts.add_to_whitelist(address, &ctx.bumps)
     }
@@ -35,7 +35,7 @@ pub mod week1_challenge {
     pub fn remove_from_whitelist(
         ctx: Context<WhitelistOperations>,
         address: Pubkey,
-        mint: Pubkey,
+        _mint: Pubkey,
     ) -> Result<()> {
         ctx.accounts.remove_from_whitelist(address)
     }

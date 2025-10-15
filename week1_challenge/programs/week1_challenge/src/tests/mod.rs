@@ -125,6 +125,7 @@ mod tests {
     pub fn test_full_deposit_workflow() {
         let (mut svm, reusable_data) = setup();
         msg!("here's the hook id: {}", TRANSFER_HOOK_PROGRAM_ID);
+        msg!(" 🔥 [1] create vault");
         // 🔥 [1] create vault
 
         let create_vault_ix = Instruction {
@@ -238,7 +239,7 @@ mod tests {
             .to_account_metas(None),
             data: crate::instruction::AddToWhitelist {
                 address: new_user_ata.key(),
-                mint: reusable_data.mint.pubkey(),
+                _mint: reusable_data.mint.pubkey(),
             }
             .data(),
         };
@@ -270,6 +271,7 @@ mod tests {
         );
         msg!("contains you: {}", contains_address);
 
+        msg!("🔥🔥🔥 [4] mint token to self");
         // 🔥🔥🔥 [4] mint token to self
 
         // let new_user = Keypair::new();
@@ -350,6 +352,7 @@ mod tests {
             "Token balance after minting is incorrect."
         );
 
+        msg!("🔥🔥🔥🔥🔥 [5] deposit");
         // 🔥🔥🔥🔥🔥 [5] deposit
 
         let create_ata_ix =
@@ -448,34 +451,66 @@ mod tests {
 
         svm.send_transaction(transaction5).unwrap();
 
+        msg!("🔥🔥🔥🔥🔥 [6] remove from whitelist");
         // 🔥🔥🔥🔥🔥 [6] remove from whitelist
-        let remove_from_whitelist_ix = Instruction {
+        // let remove_from_whitelist_ix = Instruction {
+        //     program_id: PROGRAM_ID,
+        //     accounts: crate::accounts::WhitelistOperations {
+        //         whitelist: whitelist.key(),
+        //         vault: reusable_data.vault_state.key(),
+        //         admin: reusable_data.admin.pubkey(),
+        //         system_program: reusable_data.system_program.key(),
+        //     }
+        //     .to_account_metas(None),
+        //     data: crate::instruction::RemoveFromWhitelist {
+        //         address: new_user_ata.key(),
+        //         mint: reusable_data.mint.pubkey(),
+        //     }
+        //     .data(),
+        // };
+
+        // let recent_blockhash = svm.latest_blockhash();
+
+        // let transaction3 = Transaction::new_signed_with_payer(
+        //     &[remove_from_whitelist_ix],
+        //     Some(&reusable_data.admin.pubkey()),
+        //     &[&reusable_data.admin],
+        //     recent_blockhash,
+        // );
+
+        // svm.send_transaction(transaction3).unwrap();
+
+        msg!("🔥🔥🔥🔥🔥 [7] withdraw");
+        // 🔥🔥🔥🔥🔥 [7] withdraw
+        let withdraw_from_vault_ix = Instruction {
             program_id: PROGRAM_ID,
-            accounts: crate::accounts::WhitelistOperations {
-                whitelist: whitelist.key(),
-                vault: reusable_data.vault_state.key(),
-                admin: reusable_data.admin.pubkey(),
+            accounts: crate::accounts::DepositWithdraw {
+                associated_token_program: reusable_data.ata_program.key(),
+                hook_program_id: TRANSFER_HOOK_PROGRAM_ID.key(),
+                mint: reusable_data.mint.pubkey(),
+                owner: reusable_data.admin.pubkey(),
+                sender: new_user.pubkey(),
                 system_program: reusable_data.system_program.key(),
+                token_program: reusable_data.token_program.key(),
+                user_ata: new_user_ata.key(),
+                vault_ata: reusable_data.vault_ata.key(),
+                vault_state: reusable_data.vault_state.key(),
+                extra_account_meta_list: extra_account_meta_list.key(),
+                whitelist: whitelist.key(),
             }
             .to_account_metas(None),
-            data: crate::instruction::RemoveFromWhitelist {
-                address: new_user_ata.key(),
-                mint: reusable_data.mint.pubkey(),
-            }
-            .data(),
+            data: crate::instruction::Withdraw { amount: 100 }.data(),
         };
 
         let recent_blockhash = svm.latest_blockhash();
 
-        let transaction3 = Transaction::new_signed_with_payer(
-            &[remove_from_whitelist_ix],
-            Some(&reusable_data.admin.pubkey()),
-            &[&reusable_data.admin],
+        let transaction7 = Transaction::new_signed_with_payer(
+            &[withdraw_from_vault_ix],
+            Some(&new_user.pubkey()),
+            &[&new_user],
             recent_blockhash,
         );
 
-        svm.send_transaction(transaction3).unwrap();
-
-        // 🔥🔥🔥🔥🔥 [7] withdraw
+        svm.send_transaction(transaction7).unwrap();
     }
 }
