@@ -208,7 +208,7 @@ mod tests {
 
         svm.send_transaction(transaction2).unwrap();
 
-        let new_state_of_metalist = svm.get_account(&reusable_data.vault_state).unwrap();
+        let new_state_of_metalist = svm.get_account(&extra_account_meta_list).unwrap();
         // let fetched_metalist_state =
         //     crate::AccountInfo::try_borrow_data(&new_state_of_metalist).unwrap();
 

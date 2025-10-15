@@ -101,14 +101,14 @@ impl<'info> DepositWithdraw<'info> {
         // // 4. Use the low-level `invoke` function to execute the CPI.
         invoke(&transfer_ix, account_infos)?;
 
-        // let  account_infos = vec![
-        // self.user_ata.to_account_info(),          // source
-        // self.mint.to_account_info(),               // mint
-        // self.vault_ata.to_account_info(),          // destination
-        // self.sender.to_account_info(),             // authority
-        // self.extra_account_meta_list.to_account_info(),
-        // self.whitelist.to_account_info()
-        // ];
+    //     let  account_infos = vec![
+    //     self.user_ata.to_account_info(),          // source
+    //     self.mint.to_account_info(),               // mint
+    //     self.vault_ata.to_account_info(),          // destination
+    //     self.sender.to_account_info(),             // authority
+    //     self.extra_account_meta_list.to_account_info(),
+    //     self.whitelist.to_account_info()
+    //     ];
 
     // onchain::invoke_transfer_checked(
     //     &self.token_program.key(),
